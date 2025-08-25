@@ -505,4 +505,8 @@ if __name__ == "__main__":
     metrics_thread.start()
     
     downloader = DocumentDownloader()
+<<<<<<< HEAD
     downloader.run(job_id)
+=======
+    downloader.run(job_id)
+>>>>>>> 08db3a3ee9156a91b01c000f16978539ce9385fe
