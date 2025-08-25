@@ -1,3 +1,4 @@
+from dotenv import load_dotenv
 from flask import Flask, request, jsonify, render_template_string
 from prometheus_client import Counter, Summary, generate_latest, CONTENT_TYPE_LATEST
 from pymongo import MongoClient
@@ -9,6 +10,7 @@ from bson import ObjectId
 
 app = Flask(__name__)
 
+load_dotenv()
 # Mongo setup
 mongo_uri = os.environ.get("MONGO_URI", "mongodb://localhost:27017")
 client = MongoClient(mongo_uri)
