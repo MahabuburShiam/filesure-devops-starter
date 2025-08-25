@@ -11,7 +11,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
-COPY worker/downloader.py .
+COPY downloader.py .
 
 # Create non-root user for security
 RUN useradd -r -u 1001 appuser && chown -R appuser:appuser /app
