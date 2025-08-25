@@ -1,0 +1,30 @@
+# Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: filesure
+  labels:
+    app: filesure
+---
+# ConfigMap for shared configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: filesure-config
+  namespace: filesure
+data:
+  MONGO_URI: "mongodb://mongodb:27017"
+  AZURE_CONTAINER: "documents"
+  LOG_LEVEL: "INFO"
+---
+# Secret for sensitive data (base64 encoded values)
+# Run: echo -n "your-azure-connection-string" | base64
+apiVersion: v1
+kind: Secret
+metadata:
+  name: filesure-secrets
+  namespace: filesure
+type: Opaque
+data:
+  # Replace with your actual base64-encoded Azure Blob Storage connection string
+  AZURE_BLOB_CONN: "RGVmYXVsdEVuZHBvaW50c1Byb3RvY29sPWh0dHBzO0FjY291bnROYW1lPXlvdXJhY2NvdW50O0FjY291bnRLZXk9eW91cmtleTtFbmRwb2ludFN1ZmZpeD1jb3JlLndpbmRvd3MubmV0"

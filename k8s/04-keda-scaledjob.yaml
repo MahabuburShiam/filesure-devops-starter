@@ -1,0 +1,116 @@
+# KEDA ScaledJob for Worker Service
+apiVersion: keda.sh/v1alpha1
+kind: ScaledJob
+metadata:
+  name: filesure-worker-scaledjob
+  namespace: filesure
+spec:
+  # Job template
+  jobTargetRef:
+    template:
+      metadata:
+        labels:
+          app: filesure-worker
+        annotations:
+          prometheus.io/scrape: "true"
+          prometheus.io/port: "9100"
+          prometheus.io/path: "/metrics"
+      spec:
+        containers:
+        - name: worker
+          image: filesure/worker:latest
+          command: ["/bin/bash"]
+          args:
+          - -c
+          - |
+            # Custom job assignment logic
+            python3 -c "
+            import os
+            from pymongo import MongoClient
+            from bson import ObjectId
+            import subprocess
+            import sys
+            
+            try:
+                client = MongoClient(os.environ['MONGO_URI'])
+                db = client['filesure']
+                collection = db['jobs']
+                
+                # Find oldest pending job
+                job = collection.find_one({'jobStatus': 'pending'}, sort=[('createdAt', 1)])
+                
+                if job:
+                    job_id = str(job['_id'])
+                    print(f'Processing job: {job_id}')
+                    os.environ['JOB_ID'] = job_id
+                    result = subprocess.run([sys.executable, 'downloader.py', job_id])
+                    sys.exit(result.returncode)
+                else:
+                    print('No pending jobs found')
+                    sys.exit(0)
+            except Exception as e:
+                print(f'Error: {e}')
+                sys.exit(1)
+            "
+          env:
+          - name: MONGO_URI
+            valueFrom:
+              configMapKeyRef:
+                name: filesure-config
+                key: MONGO_URI
+          - name: AZURE_BLOB_CONN
+            valueFrom:
+              secretKeyRef:
+                name: filesure-secrets
+                key: AZURE_BLOB_CONN
+          - name: AZURE_CONTAINER
+            valueFrom:
+              configMapKeyRef:
+                name: filesure-config
+                key: AZURE_CONTAINER
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          ports:
+          - containerPort: 9100
+        restartPolicy: Never
+        
+  # KEDA scaling configuration
+  pollingInterval: 30  # Check for new jobs every 30 seconds
+  maxReplicaCount: 10  # Maximum concurrent workers
+  successfulJobsHistoryLimit: 5
+  failedJobsHistoryLimit: 5
+  
+  # Scaling triggers
+  triggers:
+  - type: mongodb
+    metadata:
+      # Connection string (will use environment variable)
+      connectionStringFromEnv: MONGO_URI
+      # Query to count pending jobs
+      query: '{"jobStatus":"pending"}'
+      # Collection to query
+      collection: jobs
+      # Database name
+      dbName: filesure
+      # Threshold - spawn one job per pending item
+      queryValue: "1"
+    authenticationRef:
+      name: keda-mongodb-auth
+
+---
+# KEDA TriggerAuthentication for MongoDB
+apiVersion: keda.sh/v1alpha1
+kind: TriggerAuthentication
+metadata:
+  name: keda-mongodb-auth
+  namespace: filesure
+spec:
+  env:
+  - parameter: connectionString
+    name: MONGO_URI
+    value: "mongodb://mongodb:27017"
